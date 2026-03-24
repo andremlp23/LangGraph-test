@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 # --- 1. CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(page_title="BlocoAI - Orçamentação", layout="wide", page_icon="🏗️")
@@ -9,15 +9,19 @@ st.set_page_config(page_title="BlocoAI - Orçamentação", layout="wide", page_i
 st.sidebar.image("https://img.icons8.com/fluency/96/structural.png", width=80)
 st.sidebar.title("Configurações do Servidor")
 
-torre_ip = st.sidebar.text_input("IP da Torre Ollama", value="100.105.95.121")
-modelo_selecionado = st.sidebar.selectbox("Modelo de IA", ["qwen3.5:9b", "llama3.2:3b"])
+modo_execucao = st.sidebar.radio(
+    "Ligação",
+    ["Remoto", "Local"],
+    index=0,
+)
 
-st.sidebar.markdown("---")
-st.sidebar.caption("Dica: Usa o Qwen para maior precisão e o Llama para maior velocidade.")
+torre_ip = st.sidebar.text_input("IP da Torre Ollama", value="100.105.95.121")
+modelo_selecionado = st.sidebar.selectbox("LLM", ["qwen3.5:9b", "llama3.2:3b"])
+
 
 # --- 2. LEITURA INTELIGENTE DE EXCEL ---
 def read_excel_ultra_clean(uploaded_file) -> str:
-    """Lê o Excel, junta as colunas na mesma linha (para manter Qty e Unit ligados ao Item) e remove lixo."""
+    """Lê o Excel, junta as colunas na mesma linha e remove lixo."""
     xls = pd.ExcelFile(uploaded_file)
     text_lines = []
     
@@ -25,60 +29,99 @@ def read_excel_ultra_clean(uploaded_file) -> str:
         df = xls.parse(sheet).astype(str)
         
         for _, row in df.iterrows():
-            # Limpa células vazias ou irrelevantes
             valores = [v.strip() for v in row if v.strip().lower() not in ['nan', 'none', '0.0', '0', '']]
-            if len(valores) > 1:  # Ignora linhas que só têm 1 palavra solta
-                # O separador ' | ' ajuda a IA a perceber que são colunas diferentes (Ex: Item | Qty | Unit)
+            if len(valores) > 1:  
                 linha_texto = " | ".join(valores)
                 text_lines.append(linha_texto)
                 
-    # Remove linhas exatamente iguais (subtotais repetidos, cabeçalhos de página, etc.)
     return "\n".join(list(dict.fromkeys(text_lines)))
 
-# --- 3. MOTOR DE EXTRAÇÃO BILINGUE ---
+# --- 3. MOTOR DE EXTRAÇÃO EM TEMPO REAL ---
 def processar_por_chunks_exaustivo(texto_integral: str, guia_texto: str, llm):
-    tamanho_chunk = 6000 # Bloco otimizado
+    tamanho_chunk = 12000 
     chunks = [texto_integral[i:i + tamanho_chunk] for i in range(0, len(texto_integral), tamanho_chunk)]
     
     notas_recolhidas = []
+    
+    st.markdown("### 📡 Monitor de Extração em Tempo Real")
     progresso_bar = st.progress(0)
     status_text = st.empty()
+    
+    # Esta caixa vai atualizar-se sozinha bloco a bloco
+    caixa_resultados = st.empty() 
+
+    # MENSAGEM DE SISTEMA (Modo Robô Ativado - Em Inglês)
+    mensagem_sistema = SystemMessage(
+        content=(
+            "You are a strict data extraction script. You do not speak. You do not explain. "
+            "You ONLY output pipe-separated text lines. Do not use bullet points, bold text (**), or headers."
+        )
+    )
 
     for i, chunk in enumerate(chunks):
-        status_text.text(f"🔍 Auditoria Bilingue: Bloco {i+1} de {len(chunks)}...")
+        status_text.text(f"🔍 A analisar: Bloco {i+1} de {len(chunks)}...")
         progresso_bar.progress((i + 1) / len(chunks))
-        
-        prompt_bloco = (
-            "Atua como um Engenheiro Orçamentista Sénior a fazer uma auditoria rigorosa.\n"
-            "Lê o EXCERTO do Excel (em Inglês) e cruza com as categorias da MATRIZ (em Português).\n"
-            "O teu objetivo é extrair o MÁXIMO DE DETALHE TÉCNICO, MAS COM CONTEXTO ABSOLUTO.\n\n"
-            "REGRA DE OURO: NUNCA extraias números, medidas, normas ou características soltas.\n"
-            "Toda a espessura, medida, grau de aço ou tratamento tem obrigatoriamente de estar descrita junto ao item a que pertence.\n"
-            "Exemplo ERRADO: '240mm', 'S355', 'Galvanizado', '10.9'.\n"
-            "Exemplo CORRETO: 'Painel de fachada Kingspan com 240mm de espessura', 'Perfil de aço grau S355', 'Parafuso classe 10.9 galvanizado'.\n\n"
-            "Para cada elemento encontrado, cria um bloco com esta estrutura:\n"
-            "Categoria da Matriz: [Nome da categoria correspondente]\n"
-            "Item Principal: [O que é o material/peça?]\n"
-            "Especificações Contextualizadas: [Descreve as dimensões, normas, marcas e tratamentos associados EXCLUSIVAMENTE a este item]\n"
-            "Quantidade: [Valor de Qty da mesma linha] | Unidade: [Unit da mesma linha]\n"
-            "---\n\n"
-            f"### MATRIZ DE REFERÊNCIA:\n{guia_texto}\n\n"
-            f"### EXCERTO DO EXCEL:\n{chunk}\n\n"
-            "### DADOS EXTRAÍDOS (Rigor e Contexto):"
+
+        # Mostrar o texto enviado pelo Python num expansor
+        with st.expander(f"👁️ Ver o Texto Cru enviado no Bloco {i+1}", expanded=False):
+            st.text(chunk)
+
+        # MENSAGEM HUMANA (Com Exemplo Exato para forçar o formato)
+        mensagem_humana = HumanMessage(
+            content=(
+                "Extrai os materiais de construção, normas e quantidades do TEXTO EXCEL.\n"
+                "Mapeia cada um para a categoria correta da MATRIZ.\n\n"
+                "FORMATO OBRIGATÓRIO (Usa apenas este formato de linha única, sem qualquer outro texto):\n"
+                "Categoria da Matriz | Nome do Material | Especificações Técnicas (Normas, Marcas, Espessuras) | Quantidade | Unidade\n\n"
+                "EXEMPLOS DE OUTPUT ESPERADO:\n"
+                "4. MATERIAL DE BASE | Aço Estrutural | Grau S355, Exc Class 2 | 711.0 | tn\n"
+                "10. COMPLEXO COBERTURA/FACHADA | Painel de Cobertura | Euroclad Top Deck, 280mm | 1942.0 | m2\n"
+                "10. COMPLEXO COBERTURA/FACHADA | Isolamento Mineral | Sikatherm MW, 250mm | N/A | N/A\n\n"
+                "Se não houver materiais no texto, escreve apenas: SEM MATERIAIS NESTE BLOCO.\n\n"
+                f"### MATRIZ:\n{guia_texto}\n\n"
+                f"### TEXTO EXCEL:\n{chunk}\n\n"
+                "### OUTPUT (Apenas as linhas formatadas):"
+            )
         )
-        
-        res = llm.invoke([HumanMessage(content=prompt_bloco)])
-        
-        # Filtro permissivo: guarda qualquer resposta que tenha mais de 15 caracteres.
-        resposta = res.content.strip()
-        if len(resposta) > 15:
-            notas_recolhidas.append(resposta)
+
+        try:
+            res = llm.invoke([mensagem_sistema, mensagem_humana])
+            resposta = res.content.strip()
+            
+            # Limpa lixo se o modelo disser "Sem materiais" e adiciona aos resultados
+            if "SEM MATERIAIS" not in resposta.upper() and len(resposta) > 20:
+                # Adicionamos a resposta pura sem mais texto!
+                notas_recolhidas.append(resposta)
+            
+            # Atualiza a caixa de resultados em tempo real
+            texto_acumulado = "\n".join(notas_recolhidas)
+            if texto_acumulado.strip():
+                caixa_resultados.text_area(
+                    f"Resultados Acumulados (Processado até ao Bloco {i+1}):", 
+                    value=texto_acumulado, 
+                    height=400
+                )
+                
+        except Exception as e:
+            notas_recolhidas.append(f"⚠️ Erro ao processar o bloco {i+1}: {e}")
             
     return "\n".join(notas_recolhidas)
-
+def read_pdf_ultra_clean(uploaded_file) -> str:
+    """Lê o PDF mantendo o layout das tabelas (crucial para as quantidades não se separarem dos materiais)."""
+    text_lines = []
+    with pdfplumber.open(uploaded_file) as pdf:
+        for page in pdf.pages:
+            # O layout=True é a magia que mantém os espaços entre colunas!
+            text = page.extract_text(layout=True) 
+            if text:
+                # Limpa linhas vazias mas mantém a estrutura da linha
+                linhas = [linha.strip() for linha in text.split('\n') if linha.strip()]
+                text_lines.extend(linhas)
+                
+    return "\n".join(text_lines) 
 # --- 4. INTERFACE PRINCIPAL ---
-st.title("🏗️ BlocoAI: Extrator de Cadernos de Encargos")
-st.markdown("Auditoria automática com base na Matriz de Referência da Blocotelha.")
+st.title("🏗️ BlocoAI: Extrator de Excel")
+st.markdown("Auditoria automática com base na Matriz de Referência.")
 
 col1, col2 = st.columns([1, 1])
 
@@ -88,7 +131,6 @@ with col1:
 
 with col2:
     st.subheader("2. Matriz de Auditoria")
-    # A Matriz Gigante e Detalhada que definimos
     guia_padrao = """1. CLASSE EXECUÇÃO: EXC2, EXC3, EXC4 | Prazos.
 2. RECURSOS: Protótipo, Cálculo, Topografia.
 3. TOLERÂNCIAS: Fabrico (EN 1090, Soldadura, Pintura), Montagem.
@@ -103,10 +145,16 @@ with col2:
     
     guia_input = st.text_area("Podes editar a matriz antes de analisar:", value=guia_padrao, height=250)
 
-if st.button("🚀 Iniciar Auditoria Completa"):
+if st.button("🚀 Iniciar Análise Completa"):
     if file_excel:
         try:
-            llm = ChatOllama(model=modelo_selecionado, base_url=f"http://{torre_ip}:11434", temperature=0)
+            if modo_execucao == "Local":
+                base_url_ollama = "http://127.0.0.1:11434"
+            else:
+                base_url_ollama = f"http://{torre_ip}:11434"
+
+            # Temperatura a 0.1 para evitar bloqueios do LLM
+            llm = ChatOllama(model=modelo_selecionado, base_url=base_url_ollama, temperature=0.1)
             
             with st.spinner("A limpar e comprimir as linhas do Excel..."):
                 texto_completo = read_excel_ultra_clean(file_excel)
@@ -115,20 +163,16 @@ if st.button("🚀 Iniciar Auditoria Completa"):
             # --- Extração (Isto faz o trabalho pesado todo) ---
             notas_finais = processar_por_chunks_exaustivo(texto_completo, guia_input, llm)
             
-            st.empty() # Limpa as mensagens da barra de progresso
             st.markdown("---")
-            st.subheader("📄 Relatório Técnico e Quantidades (Puro)")
+            st.subheader("📄 Relatório Técnico Final (Puro)")
 
-            # Apresentamos a lista crua, limpa e exata
+            # Apresentamos a lista crua final
             if len(notas_finais.strip()) < 10:
-                st.warning("⚠️ A IA não extraiu dados válidos. Verifica o conteúdo do Excel.")
+                st.warning("⚠️ A IA não extraiu dados válidos após analisar todo o documento.")
             else:
-                st.text_area("Resultado Direto da Auditoria:", value=notas_finais, height=500)
-                
-                # O botão de download guarda exatamente o que vês na caixa
                 st.download_button("📥 Descarregar Dados (TXT)", data=notas_finais, file_name="Auditoria_Blocotelha_Pura.txt")
 
         except Exception as e:
             st.error(f"Erro no sistema ou de ligação à Torre: {e}")
     else:
-        st.warning("⚠️ Carrega primeiro o ficheiro Excel do cliente na coluna da esquerda.")
+        st.warning("⚠️ Carrega primeiro o ficheiro Excel na coluna da esquerda.")
