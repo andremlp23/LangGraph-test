@@ -1,0 +1,936 @@
+[
+  {
+    "source_block": 1,
+    "raw_item": "Steel fabricated to exc class 2, all steel grade S355",
+    "raw_spec": "Steel fabricated to exc class 2, all steel grade S355. Steel erected in accordance with the NSSSBC 5th Edition",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Structural Steel",
+    "properties": {
+      "grade": "S355",
+      "execution_class": "EXC2",
+      "standard": "NSSSBC 5th Edition"
+    },
+    "processes": [
+      "fabricated",
+      "erected"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "high"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "TATA D60x1.2mm Roof Decking",
+    "raw_spec": "Supply and Installation TATA D60x1.2mm Roof Decking",
+    "category": "SECONDARY_STEEL",
+    "element": "Steel Decking",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "supply",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Holding down bolt Assemblies",
+    "raw_spec": "Holding down bolt Assemblies etc",
+    "category": "FIXINGS",
+    "element": "Holding Down Bolts",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "supply"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Intumescent Paint 2 Hr",
+    "raw_spec": "FSA Intumescent Paint 2 Hr",
+    "category": "FIRE_PROTECTION",
+    "element": "Intumescent Paint",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "application"
+    ],
+    "coating": "Intumescent",
+    "fire_protection": "2 Hr",
+    "notes": null,
+    "confidence": "high"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Internal Stair",
+    "raw_spec": "Internal Stair (FSA)",
+    "category": "SECONDARY_STEEL",
+    "element": "Internal Stair",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabrication",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "External Steelwork/Metalwork",
+    "raw_spec": "Additional - External Steelwork/Metalwork",
+    "category": "SECONDARY_STEEL",
+    "element": "External Steelwork",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabrication",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Loading Dock - Fencing and Handrails",
+    "raw_spec": "Loading Dock - Fencing and Handrails (Slides 1 & 2)  (DC)",
+    "category": "SECONDARY_STEEL",
+    "element": "Fencing and Handrails",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabrication",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Crash protection to rising services",
+    "raw_spec": "Crash protection to rising services (Slide 4) (DC)",
+    "category": "SECONDARY_STEEL",
+    "element": "Crash Protection",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabrication",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Cat Ladder and balustrade to penthouse roof",
+    "raw_spec": "Cat Ladder and balustrade to penthouse roof - (Ground to Roof) 11m",
+    "category": "SECONDARY_STEEL",
+    "element": "Cat Ladder and Balustrade",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabrication",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Bollards",
+    "raw_spec": "Bollards",
+    "category": "SECONDARY_STEEL",
+    "element": "Bollards",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "supply",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Hop-over Step on roof",
+    "raw_spec": "Hop-over Step on roof",
+    "category": "SECONDARY_STEEL",
+    "element": "Hop-over Step",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabrication",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Secondary steel",
+    "raw_spec": "Secondary steel",
+    "category": "SECONDARY_STEEL",
+    "element": "Secondary Steel",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabrication",
+      "installation"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Corrosion protection paint",
+    "raw_spec": "Corrosion protection paint suitable for C2 environment category",
+    "category": "COATING",
+    "element": "Corrosion Protection Paint",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "application"
+    ],
+    "coating": "Corrosion Protection",
+    "fire_protection": null,
+    "notes": "C2 environment category",
+    "confidence": "high"
+  },
+  {
+    "source_block": 1,
+    "raw_item": "Intumescent paint fire protection",
+    "raw_spec": "Intumescent paint fire protection (60 minutes), applied on Factory",
+    "category": "FIRE_PROTECTION",
+    "element": "Intumescent Paint",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "application"
+    ],
+    "coating": "Intumescent",
+    "fire_protection": "60 minutes",
+    "notes": "applied on Factory",
+    "confidence": "high"
+  },
+  {
+    "source_block": 2,
+    "raw_item": "Structural Steel",
+    "raw_spec": "Steel fabricated to exc class 2, all steel grade S355. Steel erected in accordance with the NSSSBC 5th Edition",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Structural Steel",
+    "properties": {
+      "grade": "S355",
+      "execution_class": "EXC2",
+      "standard": "NSSSBC 5th Edition"
+    },
+    "processes": [
+      "fabricated",
+      "erected"
+    ],
+    "coating": "null",
+    "fire_protection": "null",
+    "notes": "null",
+    "confidence": "high"
+  },
+  {
+    "source_block": 2,
+    "raw_item": "Shotblast, galvanised to EN ISO 1461",
+    "raw_spec": "Shotblast, galvanised to EN ISO 1461",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Galvanized Structural Steel",
+    "properties": {
+      "grade": "null",
+      "execution_class": "null",
+      "standard": "EN ISO 1461"
+    },
+    "processes": [
+      "shotblast",
+      "galvanized"
+    ],
+    "coating": "Galvanized",
+    "fire_protection": "null",
+    "notes": "null",
+    "confidence": "high"
+  },
+  {
+    "source_block": 2,
+    "raw_item": "INTUMESCENT FIRE PROTECTION",
+    "raw_spec": "INTUMESCENT FIRE PROTECTION",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Intumescent Protected Structural Steel",
+    "properties": {
+      "grade": "null",
+      "execution_class": "null",
+      "standard": "null"
+    },
+    "processes": [
+      "protected"
+    ],
+    "coating": "null",
+    "fire_protection": "Intumescent 1 Hr",
+    "notes": "null",
+    "confidence": "high"
+  },
+  {
+    "source_block": 2,
+    "raw_item": "SECONDARY STEEL",
+    "raw_spec": "SECONDARY STEEL",
+    "category": "SECONDARY_STEEL",
+    "element": "Secondary Steel",
+    "properties": {
+      "grade": "null",
+      "execution_class": "null",
+      "standard": "null"
+    },
+    "processes": [
+      "null"
+    ],
+    "coating": "null",
+    "fire_protection": "null",
+    "notes": "null",
+    "confidence": "medium"
+  },
+  {
+    "source_block": 2,
+    "raw_item": "Holding down bolts (supply only)",
+    "raw_spec": "Holding down bolts (supply only)",
+    "category": "FIXINGS",
+    "element": "Holding Down Bolts",
+    "properties": {
+      "grade": "null",
+      "execution_class": "null",
+      "standard": "null"
+    },
+    "processes": [
+      "supplied"
+    ],
+    "coating": "null",
+    "fire_protection": "null",
+    "notes": "null",
+    "confidence": "high"
+  },
+  {
+    "source_block": 2,
+    "raw_item": "STEEL DECKING",
+    "raw_spec": "STEEL DECKING",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Steel Decking",
+    "properties": {
+      "grade": "null",
+      "execution_class": "null",
+      "standard": "null"
+    },
+    "processes": [
+      "supplied",
+      "installed"
+    ],
+    "coating": "null",
+    "fire_protection": "null",
+    "notes": "TATA D60x1.2mm Roof Decking",
+    "confidence": "high"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Structural Steel",
+    "raw_spec": "Steel fabricated to exc class 2, all steel grade S355. Steel erected in accordance with the NSSSBC 5th Edition",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Structural Steel",
+    "properties": {
+      "grade": "S355",
+      "execution_class": "EXC2",
+      "standard": "NSSSBC 5th Edition"
+    },
+    "processes": [
+      "fabricated",
+      "erected"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "high"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Galvanised Structural Steel",
+    "raw_spec": "Shotblast, galvanised to EN ISO 1461",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Galvanised Structural Steel",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": "EN ISO 1461"
+    },
+    "processes": [
+      "shotblast",
+      "galvanised"
+    ],
+    "coating": "Galvanized",
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "high"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Intumescent Fire Protected Structural Steel",
+    "raw_spec": "INTUMESCENT FIRE PROTECTION",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Intumescent Fire Protected Structural Steel",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "intumescent fire protected"
+    ],
+    "coating": null,
+    "fire_protection": "Intumescent 1 Hr",
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Secondary Steel",
+    "raw_spec": "SECONDARY STEEL",
+    "category": "SECONDARY_STEEL",
+    "element": "Secondary Steel",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Steel Decking",
+    "raw_spec": "STEEL DECKING",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Steel Decking",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "supplied",
+      "installed"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": "TATA D60x1.2mm Roof Decking",
+    "confidence": "medium"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Cat Ladders",
+    "raw_spec": "CAT LADDERS",
+    "category": "SECONDARY_STEEL",
+    "element": "Cat Ladders",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Railings",
+    "raw_spec": "Railings",
+    "category": "SECONDARY_STEEL",
+    "element": "Railings",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Cooling Tower Stairs",
+    "raw_spec": "Cooling Tower Stairs",
+    "category": "SECONDARY_STEEL",
+    "element": "Cooling Tower Stairs",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Bollards",
+    "raw_spec": "Bollards",
+    "category": "SECONDARY_STEEL",
+    "element": "Bollards",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Stairs over roof parapets",
+    "raw_spec": "Stairs over roof parapets (See Slides 15-18) (DC) (Phase 2 Only)",
+    "category": "SECONDARY_STEEL",
+    "element": "Stairs over roof parapets",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "Gantry Emergency Stairs",
+    "raw_spec": "Gantry Emergency Stairs",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Gantry Emergency Stairs",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 3,
+    "raw_item": "External Stair (Ground to Roof level) DCH",
+    "raw_spec": "External Stair (Ground to Roof level) DCH",
+    "category": "STRUCTURAL_STEEL",
+    "element": "External Stair",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Structural Steel",
+    "raw_spec": "Steel fabricated to exc class 2, all steel grade S355. Steel erected in accordance with the NSSSBC 5th Edition",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Structural Steel",
+    "properties": {
+      "grade": "S355",
+      "execution_class": "EXC2",
+      "standard": "NSSSBC 5th Edition"
+    },
+    "processes": [
+      "fabricated",
+      "erected"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "high"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "STEEL DECKING",
+    "raw_spec": "Supply and Installation TATA D60x1.2mm Roof Decking",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Steel Decking",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "supplied",
+      "installed"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Holding down bolt assemblies",
+    "raw_spec": "Supply Holding down bolt assemblies - MCP",
+    "category": "SECONDARY_STEEL",
+    "element": "Holding Down Bolt Assemblies",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "supplied"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Bumper Railings",
+    "raw_spec": "Bumper Railings infront of Chillers",
+    "category": "SECONDARY_STEEL",
+    "element": "Bumper Railings",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "installed"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Galvanising",
+    "raw_spec": "Shotblast, galvanised to EN ISO 1461",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Galvanising",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": "EN ISO 1461"
+    },
+    "processes": [
+      "shotblasted",
+      "galvanised"
+    ],
+    "coating": "Galvanised",
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "high"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Intumescent Fire Protection",
+    "raw_spec": "DCH Intumescent Paint 1 Hr",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Intumescent Fire Protection",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "applied"
+    ],
+    "coating": "Intumescent Paint",
+    "fire_protection": "1 Hour",
+    "notes": null,
+    "confidence": "high"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "30mm open mesh grating",
+    "raw_spec": "30mm open mesh grating",
+    "category": "SECONDARY_STEEL",
+    "element": "Open Mesh Grating",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "installed"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Cat Ladder and balustrade",
+    "raw_spec": "Cat Ladder and balustrade to penthouse roof - (Ground to Roof)",
+    "category": "SECONDARY_STEEL",
+    "element": "Cat Ladder and Balustrade",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "installed"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Stairs over roof parapets",
+    "raw_spec": "Stairs over roof parapets (See Slides 15-18) (DC) (Phase 2 Only)",
+    "category": "SECONDARY_STEEL",
+    "element": "Stairs",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "installed"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Bollards",
+    "raw_spec": "Bollards",
+    "category": "SECONDARY_STEEL",
+    "element": "Bollards",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "installed"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 4,
+    "raw_item": "Railings",
+    "raw_spec": "Railings",
+    "category": "SECONDARY_STEEL",
+    "element": "Railings",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "installed"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 5,
+    "raw_item": "Structural Steel",
+    "raw_spec": "15.1.001 | S03-A2000 | CSA | PH1 | (Shell A) Structural Steel | 7.23051 | tn | Str Steel (P)",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Structural Steel",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated",
+      "erected"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "low"
+  },
+  {
+    "source_block": 5,
+    "raw_item": "Structural Steel H.D.A.",
+    "raw_spec": "15.4.005 | S03-A2000 | CSA | PH1 | (Shell A) Structural Steel H.D.A. | 77.92 | nr | Str Steel (P)",
+    "category": "STRUCTURAL_STEEL",
+    "element": "Structural Steel",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "fabricated"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": "H.D.A.",
+    "confidence": "low"
+  },
+  {
+    "source_block": 5,
+    "raw_item": "Galvanising",
+    "raw_spec": "S03-A2000 | CSA | PH1 | Galvanising | tn | Str Steel (P)",
+    "category": "SECONDARY_STEEL",
+    "element": "Galvanising",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "galvanised"
+    ],
+    "coating": "Galvanised",
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 5,
+    "raw_item": "Shotblast, galvanised to EN ISO 1461",
+    "raw_spec": "15.5.015 | S03-A2000 | CSA | PH1 | Shotblast, galvanised to EN ISO 1461 | 7.23051 | tn | Str Steel (P)",
+    "category": "SECONDARY_STEEL",
+    "element": "Galvanising",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": "EN ISO 1461"
+    },
+    "processes": [
+      "shotblast",
+      "galvanised"
+    ],
+    "coating": "Galvanised",
+    "fire_protection": null,
+    "notes": null,
+    "confidence": "medium"
+  },
+  {
+    "source_block": 5,
+    "raw_item": "Surface touchup after erection",
+    "raw_spec": "15.4.010 | S03-A2000 | CSA | PH1 | Surface touchup after erection | 1.0 | nr | Str Steel (P)",
+    "category": "SECONDARY_STEEL",
+    "element": "Surface Touchup",
+    "properties": {
+      "grade": null,
+      "execution_class": null,
+      "standard": null
+    },
+    "processes": [
+      "erected",
+      "touchup"
+    ],
+    "coating": null,
+    "fire_protection": null,
+    "notes": "after erection",
+    "confidence": "low"
+  }
+]
