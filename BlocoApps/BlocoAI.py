@@ -60,64 +60,76 @@ def read_document(file) -> str:
 
 # --- ATUALIZAÇÃO DO MOTOR DE SUMARIZAÇÃO (Etapa 1) ---
 
+# --- 3. MOTOR DE SUMARIZAÇÃO (Ajustado para Nomes Reais) ---
+
+# --- 3. MOTOR DE EXTRAÇÃO DE "SUMO" TÉCNICO (Fase 1) ---
+
+# --- 3. MOTOR DE EXTRAÇÃO (Fase 1: Coleta do "Sumo" Técnico) ---
+
 def extrair_sumario_parcial(texto_integral: str, guia_texto: str, llm):
     tamanho_max_chunk = 15000 
     chunks = [texto_integral[i:i + tamanho_max_chunk] for i in range(0, len(texto_integral), tamanho_max_chunk)]
     resumos_finais = []
-    st.markdown("### 📡 Fase 1: Auditoria Técnica (Filtro de Specs)...")
+    st.markdown("### 📡 Fase 1: Mapeando Identidade Técnica e Zonas...")
     progresso_bar = st.progress(0)
 
+    # O segredo aqui é pedir para LISTAR em vez de RESUMIR
     mensagem_sistema = SystemMessage(
-        content=f"""You are a Technical Auditor for Structural Steel. 
-        Your task is to extract only the TECHNICAL DNA of the items.
+        content=f"""You are a Technical Data Hunter for a Construction Budgeting team.
         
-        CRITICAL DISTINCTION:
-        1. DELETE Commercial Quantities: e.g., 711.00, 50.5, 1.200, 22. (Numbers alone).
-        2. KEEP Technical Specs: e.g., S355, S275, EXC2, EXC3, R60, R120, 2Hr, 150microns, Sa2.5, EN 1090.
+        GOAL: Extract all technical details for each item, keeping their real context.
         
-        INSTRUCTIONS:
-        - Scan each line for the keywords in the Audit Matrix: {guia_texto}.
-        - If a line says 'Steel Grade S355', the spec is 'S355'.
-        - If you see 'Intumescent 2hr', the spec is '2hr'.
-        - NEVER write 'Not specified' if there is technical text nearby. Use the original technical description.
+        1. HEADERS: Identify the real Phase (PH1, etc.) and Zone names (FSA, DCH, EYD).
+        2. TECHNICAL DATA (The Sumo): For each item, list:
+           - Material Grades: (e.g., S355, C20/25, C30/37).
+           - Execution/Standard: (e.g., EXC2, EN 1090, BS 5911).
+           - Protection: (e.g., Sa2.5, Galvanized, R60, Microns).
+           - Scope Detail: (e.g., 'Includes excavations', 'BIM coordination', 'Connection design').
+        3. NO QUANTITIES: Ignore numbers like 711.00, 50.5, etc.
+        4. NO DATA LOSS: If a grade like 'C20/25' is in the text, you MUST record it.
         """
     )
 
     for i, chunk in enumerate(chunks):
         progresso_bar.progress((i + 1) / len(chunks))
         try:
-            # Forçamos a IA a não ser preguiçosa
-            prompt_auditoria = f"Identify all technical specifications (Grades, Classes, Fire, Paint) in this text. IGNORE quantities. TEXT:\n\n{chunk}"
+            # Pedimos para ele ser um "Catalogador"
+            prompt_auditoria = f"List all technical specifications and their real Phase/Zone names found here:\n\n{chunk}"
             res = llm.invoke([mensagem_sistema, HumanMessage(content=prompt_auditoria)])
             resumos_finais.append(res.content)
             time.sleep(0.5)
         except Exception as e: st.error(f"Erro no bloco {i}: {e}")
     return "\n\n".join(resumos_finais)
 
-# --- ATUALIZAÇÃO DA CONSOLIDAÇÃO HIERÁRQUICA (Etapa 2) ---
+# --- 4. CONSOLIDAÇÃO (Fase 2: Auditoria e Árvore Final) ---
 
 def gerar_consolidacao_hierarquica(resumos_acumulados, guia_input, llm):
-    st.markdown("### 🔍 Fase 2: Consolidando Árvore de Decisão...")
+    st.markdown("### 🔍 Fase 2: Polimento Hierárquico e Auditoria Técnica...")
     
     mensagem_sistema = SystemMessage(
-        content=f"""You are a Chief Auditor. Create a nested hierarchical report.
+        content=f"""You are a Senior Structural Estimator. Your goal is to produce a SHARP Technical Report.
         
-        REPORT STRUCTURE:
-        Project > Phase > Zone
-        --> TECHNICAL PROFILE: Summarize the specs (Grades, Classes, Ratings, Painting).
-        --> SCOPE & RISKS: (e.g., BIM, Design Responsibility, MEP coordination).
-        --> INCONSISTENCIES: Flag only if technical specs conflict (e.g., S355 vs S275).
+        REFINEMENT RULES:
+        1. LOCAL CONTEXT ONLY: Only list materials (S355, C20/25) that actually appear in that specific Zone. Do not copy materials from one zone to another (e.g., S355 is for Steel, C20/25 is for Drainage).
+        2. STANDARDS VS CODES: Distinguish between technical standards (EN, BS, ISO) and project codes (CSA, PH1). CSA is a PROJECT ID, not a standard.
+        3. THE SUMO: Keep the scope inclusions (e.g., "Includes excavations", "Includes fixings").
+        4. INCONSISTENCIES: Flag if the same zone has conflicting data (e.g., PH1-DCH says S355 and PH2-DCH says S275).
         
-        MANDATORY:
-        - If the previous blocks found 'S355' or 'EXC2', they MUST appear here.
-        - Do not summarize so much that you lose the specific grades.
+        STRUCTURE:
+        Project: [Real ID: CSA]
+        --> Phase: [Real Name]
+           --> Zone: [Real Name]
+              ---> TECHNICAL PROFILE: [Grades, Execution Classes, Standards]
+              ---> SCOPE ALERTS: [The "Sumo": Inclusions, exclusions, risks]
+              ---> INCONSISTENCIES: [Specific conflicts or 'None']
         """
     )
     
     try:
-        res = llm.invoke([mensagem_sistema, HumanMessage(content=resumos_acumulados)])
+        # Forçamos a IA a ser crítica com o que recebeu da Fase 1
+        res = llm.invoke([mensagem_sistema, HumanMessage(content=f"Review and polish this data into the final tree:\n\n{resumos_acumulados}")])
         return res.content
-    except Exception as e: return f"Erro na consolidação: {e}"
+    except Exception as e: return f"Erro: {e}"
 
 # --- 4. INTERFACE PRINCIPAL ---
 st.title("🏗️ BlocoAI: Auditoria Técnica Hierárquica")
