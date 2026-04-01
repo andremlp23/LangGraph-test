@@ -7,7 +7,7 @@ import io
 from pathlib import Path
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 import re
 
 def carregar_env_local():
@@ -22,9 +22,12 @@ def carregar_env_local():
                 continue
             chave, valor = linha.split("=", 1)
             chave = chave.strip()
+            if chave.startswith("export "):
+                chave = chave[len("export "):].strip()
             valor = valor.strip().strip('"').strip("'")
             if chave:
-                os.environ.setdefault(chave, valor)
+                if not os.getenv(chave):
+                    os.environ[chave] = valor
         return
 
 carregar_env_local()
@@ -38,9 +41,10 @@ st.sidebar.title("Configurações do Servidor")
 modo_execucao = st.sidebar.radio("Ligação", ["Remoto", "Local", "API Key"], index=0)
 
 if modo_execucao == "API Key":
-    st.sidebar.caption("Modelo Ativo: gpt-oss-120b")
-    api_key_default = os.getenv("GROQ_API_KEY", "")
-    api_key = st.sidebar.text_input("🔑 API Key", value="", type="password")
+    st.sidebar.caption("Modelo Ativo: gpt-4o-mini")
+    api_key_default = os.getenv("CHATGPT_API_KEY", "")
+    api_key_input = st.sidebar.text_input("🔑 API Key", value="", type="password")
+    api_key = api_key_input.strip() or api_key_default.strip()
 else:
     torre_ip = st.sidebar.text_input("🌐 IP da Torre", value="100.105.95.121")
     modelo_selecionado = st.sidebar.selectbox("🧠 LLM", ["qwen3.5:9b", "llama3.2:3b"])
@@ -72,7 +76,7 @@ def read_pdf_ultra_clean(uploaded_file) -> str:
 
 # --- 3. MOTOR DE EXTRAÇÃO DE TEXTO RICO ---
 def processar_por_chunks_exaustivo(texto_integral: str, guia_texto: str, llm, modo: str):
-    tamanho_max_chunk = 4000 if modo == "API Key" else 15000 
+    tamanho_max_chunk = 15000 if modo == "API Key" else 15000 
     
     linhas_texto = texto_integral.split('\n')
     chunks = []
@@ -207,8 +211,7 @@ if st.button("🚀 Iniciar Análise"):
                 if not api_key.strip():
                     st.error("⚠️ API Key em falta. Coloca-a na barra lateral.")
                     st.stop()
-                # ERRO DE INDENTAÇÃO CORRIGIDO AQUI:
-                llm = ChatGroq(model_name="openai/gpt-oss-120b", api_key=api_key, temperature=0.1)
+                llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0.1)
             else:
                 base_url_ollama = "http://127.0.0.1:11434" if modo_execucao == "Local" else f"http://{torre_ip}:11434"
                 llm = ChatOllama(model=modelo_selecionado, base_url=base_url_ollama, temperature=0.1, num_ctx=16384)

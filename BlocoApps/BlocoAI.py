@@ -1,7 +1,36 @@
 import streamlit as st
 import pandas as pd
+import time
+import pdfplumber 
+import os
+import io 
+from pathlib import Path
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+import re
+
+def carregar_env_local():
+    base_dir = Path(__file__).resolve().parent
+    candidatos = [base_dir / ".env", base_dir.parent / ".env"]
+    for env_path in candidatos:
+        if not env_path.exists():
+            continue
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            linha = line.strip()
+            if not linha or linha.startswith("#") or "=" not in linha:
+                continue
+            chave, valor = linha.split("=", 1)
+            chave = chave.strip()
+            if chave.startswith("export "):
+                chave = chave[len("export "):].strip()
+            valor = valor.strip().strip('"').strip("'")
+            if chave:
+                if not os.getenv(chave):
+                    os.environ[chave] = valor
+        return
+
+carregar_env_local()
 
 # --- 1. CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(page_title="BlocoAI - Orçamentação", layout="wide", page_icon="🏗️")
@@ -9,170 +38,192 @@ st.set_page_config(page_title="BlocoAI - Orçamentação", layout="wide", page_i
 st.sidebar.image("https://img.icons8.com/fluency/96/structural.png", width=80)
 st.sidebar.title("Configurações do Servidor")
 
-modo_execucao = st.sidebar.radio(
-    "Ligação",
-    ["Remoto", "Local"],
-    index=0,
-)
+modo_execucao = st.sidebar.radio("Ligação", ["Remoto", "Local", "API Key"], index=0)
 
-torre_ip = st.sidebar.text_input("IP da Torre Ollama", value="100.105.95.121")
-modelo_selecionado = st.sidebar.selectbox("LLM", ["qwen3.5:9b", "llama3.2:3b"])
+if modo_execucao == "API Key":
+    st.sidebar.caption("Modelo Ativo: gpt-4o-mini")
+    api_key_default = os.getenv("CHATGPT_API_KEY", "")
+    api_key_input = st.sidebar.text_input("🔑 API Key", value="", type="password")
+    api_key = api_key_input.strip() or api_key_default.strip()
+else:
+    torre_ip = st.sidebar.text_input("🌐 IP da Torre", value="100.105.95.121")
+    modelo_selecionado = st.sidebar.selectbox("🧠 LLM", ["qwen3.5:9b", "llama3.2:3b"])
 
-
-# --- 2. LEITURA INTELIGENTE DE EXCEL ---
+# --- 2. LEITURA DE DADOS ---
 def read_excel_ultra_clean(uploaded_file) -> str:
-    """Lê o Excel, junta as colunas na mesma linha e remove lixo."""
     xls = pd.ExcelFile(uploaded_file)
     text_lines = []
-    
     for sheet in xls.sheet_names:
         df = xls.parse(sheet).astype(str)
-        
-        for _, row in df.iterrows():
+        for idx, row in df.iterrows():
             valores = [v.strip() for v in row if v.strip().lower() not in ['nan', 'none', '0.0', '0', '']]
             if len(valores) > 1:  
-                linha_texto = " | ".join(valores)
-                text_lines.append(linha_texto)
-                
+                text_lines.append(f"[Linha: {idx+2}] " + " | ".join(valores))
     return "\n".join(list(dict.fromkeys(text_lines)))
 
-# --- 3. MOTOR DE EXTRAÇÃO EM TEMPO REAL ---
-def processar_por_chunks_exaustivo(texto_integral: str, guia_texto: str, llm):
-    tamanho_chunk = 12000 
-    chunks = [texto_integral[i:i + tamanho_chunk] for i in range(0, len(texto_integral), tamanho_chunk)]
-    
-    notas_recolhidas = []
-    
-    st.markdown("### 📡 Monitor de Extração em Tempo Real")
-    progresso_bar = st.progress(0)
-    status_text = st.empty()
-    
-    # Esta caixa vai atualizar-se sozinha bloco a bloco
-    caixa_resultados = st.empty() 
+def read_pdf_ultra_clean(uploaded_file) -> str:
+    text_lines = []
+    with pdfplumber.open(uploaded_file) as pdf:
+        for i, page in enumerate(pdf.pages):
+            text = page.extract_text(layout=True) 
+            if text:
+                text_lines.extend([f"[Pág: {i+1}] {l.strip()}" for l in text.split('\n') if l.strip()])
+    return "\n".join(text_lines) 
 
-    # MENSAGEM DE SISTEMA (Modo Robô Ativado - Em Inglês)
+# --- 3. MOTOR DE EXTRAÇÃO HIERÁRQUICA ---
+def processar_por_chunks_exaustivo(texto_integral: str, guia_texto: str, llm, modo: str):
+    tamanho_max_chunk = 15000 
+    linhas_texto = texto_integral.split('\n')
+    chunks = []
+    chunk_atual = ""
+    for linha in linhas_texto:
+        if len(chunk_atual) + len(linha) + 1 > tamanho_max_chunk:
+            chunks.append(chunk_atual.strip()); chunk_atual = linha + "\n"
+        else: chunk_atual += linha + "\n"
+    if chunk_atual.strip(): chunks.append(chunk_atual.strip())
+    
+    notas_recolhidas = [] 
+    st.markdown("### 📡 Monitor de Extração Hierárquica")
+    progresso_bar = st.progress(0); status_text = st.empty(); caixa_resultados = st.empty()
+
+    # MENSAGEM DE SISTEMA AJUSTADA: FASE -> ZONA
     mensagem_sistema = SystemMessage(
-        content=(
-            "You are a strict data extraction script. You do not speak. You do not explain. "
-            "You ONLY output pipe-separated text lines. Do not use bullet points, bold text (**), or headers."
-        )
+        content="""You are a Senior Structural Steel Engineer. 
+Extract technical data respecting this strict hierarchy: PHASE first, then ZONE.
+
+OUTPUT FORMAT (Exactly 5 segments separated by '|'):
+Source Reference | Phase-Zone | Category | Item | Technical Detail
+
+HIERARCHY RULES:
+1. PHASE: PH1, PH2, PH3, etc.
+2. ZONE: CSA, EYD, MYD, DCH, FSA, etc.
+3. If a Phase is found but no Zone, use 'Phase - General'.
+4. 'Technical Detail' must include Grades (S355), Standards, and Treatments. NO math.
+
+Example: [Linha: 10] | PH1 - CSA | Structural Steel | Beam | S355, EXC2, Galvanized"""
     )
 
     for i, chunk in enumerate(chunks):
-        status_text.text(f"🔍 A analisar: Bloco {i+1} de {len(chunks)}...")
-        progresso_bar.progress((i + 1) / len(chunks))
+        bloco_num = i + 1
+        status_text.text(f"🔍 Analisando Fase e Zona: Bloco {bloco_num} de {len(chunks)}...")
+        progresso_bar.progress(bloco_num / len(chunks))
+        
+        prompt_bloco = f"""Extrai os dados de aço. Prioriza identificar a FASE e depois a ZONA.
+Matriz de Auditoria:
+{guia_texto}
 
-        # Mostrar o texto enviado pelo Python num expansor
-        with st.expander(f"👁️ Ver o Texto Cru enviado no Bloco {i+1}", expanded=False):
-            st.text(chunk)
+Regras:
+1. Identifica obrigatoriamente a Fase (ex: PH1) e a Zona (ex: CSA).
+2. Formato: Referência | Fase-Zona | Categoria | Item | Detalhe Técnico
 
-        # MENSAGEM HUMANA (Com Exemplo Exato para forçar o formato)
-        mensagem_humana = HumanMessage(
-            content=(
-                "Extrai os materiais de construção, normas e quantidades do TEXTO EXCEL.\n"
-                "Mapeia cada um para a categoria correta da MATRIZ.\n\n"
-                "FORMATO OBRIGATÓRIO (Usa apenas este formato de linha única, sem qualquer outro texto):\n"
-                "Categoria da Matriz | Nome do Material | Especificações Técnicas (Normas, Marcas, Espessuras) | Quantidade | Unidade\n\n"
-                "EXEMPLOS DE OUTPUT ESPERADO:\n"
-                "4. MATERIAL DE BASE | Aço Estrutural | Grau S355, Exc Class 2 | 711.0 | tn\n"
-                "10. COMPLEXO COBERTURA/FACHADA | Painel de Cobertura | Euroclad Top Deck, 280mm | 1942.0 | m2\n"
-                "10. COMPLEXO COBERTURA/FACHADA | Isolamento Mineral | Sikatherm MW, 250mm | N/A | N/A\n\n"
-                "Se não houver materiais no texto, escreve apenas: SEM MATERIAIS NESTE BLOCO.\n\n"
-                f"### MATRIZ:\n{guia_texto}\n\n"
-                f"### TEXTO EXCEL:\n{chunk}\n\n"
-                "### OUTPUT (Apenas as linhas formatadas):"
-            )
-        )
+TEXTO:
+{chunk}
+
+RESULTADO:"""
 
         try:
-            res = llm.invoke([mensagem_sistema, mensagem_humana])
-            resposta = res.content.strip()
-            
-            # Limpa lixo se o modelo disser "Sem materiais" e adiciona aos resultados
-            if "SEM MATERIAIS" not in resposta.upper() and len(resposta) > 20:
-                # Adicionamos a resposta pura sem mais texto!
-                notas_recolhidas.append(resposta)
-            
-            # Atualiza a caixa de resultados em tempo real
-            texto_acumulado = "\n".join(notas_recolhidas)
-            if texto_acumulado.strip():
-                caixa_resultados.text_area(
-                    f"Resultados Acumulados (Processado até ao Bloco {i+1}):", 
-                    value=texto_acumulado, 
-                    height=400
-                )
-                
-        except Exception as e:
-            notas_recolhidas.append(f"⚠️ Erro ao processar o bloco {i+1}: {e}")
+            res = llm.invoke([mensagem_sistema, HumanMessage(content=prompt_bloco)])
+            linhas = [l.strip() for l in res.content.strip().split('\n') if "|" in l]
+            if linhas:
+                bloco_str = "\n".join(linhas)
+                notas_recolhidas.append(f"--- BLOCO {bloco_num} ---\n{bloco_str}")
+                caixa_resultados.text_area("Live Output:", value="\n".join(notas_recolhidas), height=300)
+            if modo == "API Key": time.sleep(1) # OpenAI é mais rápida, 1s basta
+        except Exception as e: st.error(f"Erro: {e}")
             
     return "\n".join(notas_recolhidas)
-def read_pdf_ultra_clean(uploaded_file) -> str:
-    """Lê o PDF mantendo o layout das tabelas (crucial para as quantidades não se separarem dos materiais)."""
-    text_lines = []
-    with pdfplumber.open(uploaded_file) as pdf:
-        for page in pdf.pages:
-            # O layout=True é a magia que mantém os espaços entre colunas!
-            text = page.extract_text(layout=True) 
-            if text:
-                # Limpa linhas vazias mas mantém a estrutura da linha
-                linhas = [linha.strip() for linha in text.split('\n') if linha.strip()]
-                text_lines.extend(linhas)
-                
-    return "\n".join(text_lines) 
-# --- 4. INTERFACE PRINCIPAL ---
-st.title("🏗️ BlocoAI: Extrator de Excel")
-st.markdown("Auditoria automática com base na Matriz de Referência.")
 
-col1, col2 = st.columns([1, 1])
+# --- 4. INTERFACE E PROCESSAMENTO FINAL ---
+st.title("🏗️ BlocoAI: Extrator Hierárquico")
+col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("1. Ficheiro de Orçamento (Excel)")
-    file_excel = st.file_uploader("Carrega o ficheiro do cliente", type=["xlsx", "xls"])
+    st.subheader("1. Ficheiro de Orçamento")
+    file_uploaded = st.file_uploader("Carrega o ficheiro (Excel ou PDF)", type=["xlsx", "xls", "pdf"])
 
 with col2:
-    st.subheader("2. Matriz de Auditoria")
-    guia_padrao = """1. CLASSE EXECUÇÃO: EXC2, EXC3, EXC4 | Prazos.
-2. RECURSOS: Protótipo, Cálculo, Topografia.
-3. TOLERÂNCIAS: Fabrico (EN 1090, Soldadura, Pintura), Montagem.
-4. MATERIAL DE BASE: Origem (Europa, UK, etc) | Tipo/Grade de Aço (S235 a S460, JR/J0/J2) | Normas.
-5. PARAFUSOS: Fixações (EN 14399, 8.8, 10.9) | Rosca, Tratamento, Porcas.
-6. CHUMBADOUROS: Composição (Métrica, Comprimento, Classe 8.8/10.9), Grout.
-7. PROTEÇÃO ANTI CORROSIVA: Corrosividade, Decapagem, Galvanização, Espessura mínima.
-8. PROTEÇÃO AO FOGO: Intumescente (R30, R60, R120), Espessura, Epoxy.
-9. GRADIL / STEPLARM: Tipo (Prensado, PRFV), Malha, Vão máx, Galvanizado/Lacado.
-10. COMPLEXO COBERTURA/FACHADA: Térmica, Fogo, Espessuras de chapa e isolamento, Marcas (Euroclad, Kingspan, etc).
-11. LOGÍSTICA: Incoterms (EXW, DAP, DDP, etc)."""
-    
-    guia_input = st.text_area("Podes editar a matriz antes de analisar:", value=guia_padrao, height=250)
+    st.subheader("2. Definição de Hierarquia")
+    guia_padrao = "FASES: PH1, PH2, PH3\nZONAS: CSA, EYD, MYD, DCH, FSA\nCATEGORIAS: Proteções, Fogo, Decking, Estrutura"
+    guia_input = st.text_area("Bússola para a IA:", value=guia_padrao, height=150)
 
-if st.button("🚀 Iniciar Análise Completa"):
-    if file_excel:
+# Inicializar estados de memória
+if "dados_prontos" not in st.session_state:
+    st.session_state.dados_prontos = False
+    st.session_state.df_tabela = None
+
+if st.button("🚀 Iniciar Análise"):
+    if file_uploaded:
         try:
-            if modo_execucao == "Local":
-                base_url_ollama = "http://127.0.0.1:11434"
+            # Configuração do Modelo (OpenAI ou Ollama)
+            if modo_execucao == "API Key":
+                llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0.1)
             else:
-                base_url_ollama = f"http://{torre_ip}:11434"
-
-            # Temperatura a 0.1 para evitar bloqueios do LLM
-            llm = ChatOllama(model=modelo_selecionado, base_url=base_url_ollama, temperature=0.1)
+                llm = ChatOllama(model=modelo_selecionado, base_url=f"http://{torre_ip}:11434", temperature=0.1)
             
-            with st.spinner("A limpar e comprimir as linhas do Excel..."):
-                texto_completo = read_excel_ultra_clean(file_excel)
-                st.success(f"Excel processado! Texto comprimido para a IA ler.")
-
-            # --- Extração (Isto faz o trabalho pesado todo) ---
-            notas_finais = processar_por_chunks_exaustivo(texto_completo, guia_input, llm)
+            # 1. Leitura do ficheiro
+            with st.spinner("A ler documento..."):
+                texto = read_pdf_ultra_clean(file_uploaded) if file_uploaded.name.endswith('.pdf') else read_excel_ultra_clean(file_uploaded)
             
-            st.markdown("---")
-            st.subheader("📄 Relatório Técnico Final (Puro)")
+            # 2. Extração via IA
+            notas_finais = processar_por_chunks_exaustivo(texto, guia_input, llm, modo_execucao)
 
-            # Apresentamos a lista crua final
-            if len(notas_finais.strip()) < 10:
-                st.warning("⚠️ A IA não extraiu dados válidos após analisar todo o documento.")
+            # 3. Transformação em DataFrame com separação de Fase/Zona
+            linhas = [l for l in notas_finais.split('\n') if "|" in l and not l.startswith("---")]
+            dados = []
+            for l in linhas:
+                p = [x.strip() for x in l.split("|", 4)]
+                if len(p) == 5:
+                    fase_zona_raw = p[1]
+                    fase = fase_zona_raw.split('-')[0].strip() if '-' in fase_zona_raw else fase_zona_raw
+                    zona = fase_zona_raw.split('-')[1].strip() if '-' in fase_zona_raw else "Geral"
+                    
+                    dados.append({
+                        "Origem": p[0],
+                        "Fase": fase,
+                        "Zona": zona,
+                        "Categoria": p[2],
+                        "Elemento": p[3],
+                        "Especificação": p[4]
+                    })
+            
+            if dados:
+                st.session_state.df_tabela = pd.DataFrame(dados)
+                st.session_state.dados_prontos = True
             else:
-                st.download_button("📥 Descarregar Dados (TXT)", data=notas_finais, file_name="Auditoria_Blocotelha_Pura.txt")
+                st.warning("A IA não detetou elementos válidos. Tenta ajustar a Matriz.")
 
         except Exception as e:
-            st.error(f"Erro no sistema ou de ligação à Torre: {e}")
+            st.error(f"Erro no processamento: {e}")
     else:
-        st.warning("⚠️ Carrega primeiro o ficheiro Excel na coluna da esquerda.")
+        st.warning("⚠️ Por favor, carrega um ficheiro primeiro.")
+
+# --- 5. VISUALIZAÇÃO HIERÁRQUICA (Phase -> Zone -> Details) ---
+if st.session_state.dados_prontos:
+    st.markdown("---")
+    st.header("📄 Relatório Estruturado de Auditoria")
+    
+    df = st.session_state.df_tabela
+    fases = sorted(df['Fase'].unique())
+
+    for fase in fases:
+        st.markdown(f"### 🏗️ Fase: {fase}")
+        df_fase = df[df['Fase'] == fase]
+        
+        zonas = sorted(df_fase['Zona'].unique())
+        for zona in zonas:
+            # Usamos expander para não ocupar demasiado espaço vertical
+            with st.expander(f"📍 Zona: {zona}", expanded=True):
+                df_zona = df_fase[df_fase['Zona'] == zona]
+                # Mostramos os detalhes ranhura a ranhura
+                st.table(df_zona[["Elemento", "Categoria", "Especificação", "Origem"]])
+
+    st.markdown("---")
+    # Botão de Download do CSV consolidado
+    csv_buffer = io.BytesIO()
+    df.to_csv(csv_buffer, index=False, sep=";", encoding="utf-8-sig")
+    st.download_button(
+        "📊 Descarregar Tabela Completa (CSV)", 
+        data=csv_buffer.getvalue(), 
+        file_name="Orcamento_Hierarquico.csv", 
+        mime="text/csv"
+    )
