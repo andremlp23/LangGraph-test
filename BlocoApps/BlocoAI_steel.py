@@ -3,7 +3,7 @@ import pandas as pd
 import time
 import pdfplumber 
 import os
-import json # <-- ADICIONADO PARA O MODO JSON
+import io 
 from pathlib import Path
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -38,39 +38,39 @@ st.sidebar.title("Configurações do Servidor")
 modo_execucao = st.sidebar.radio("Ligação", ["Remoto", "Local", "API Key"], index=0)
 
 if modo_execucao == "API Key":
-    st.sidebar.caption("Modelo fixo: Llama 3.3 70B (Groq)")
+    st.sidebar.caption("Modelo Ativo: gpt-oss-120b")
     api_key_default = os.getenv("GROQ_API_KEY", "")
-    # DEVOLVIDA A CAIXA DE TEXTO (Para veres se a chave está realmente lá)
     api_key = st.sidebar.text_input("🔑 API Key", value="", type="password")
 else:
     torre_ip = st.sidebar.text_input("🌐 IP da Torre", value="100.105.95.121")
     modelo_selecionado = st.sidebar.selectbox("🧠 LLM", ["qwen3.5:9b", "llama3.2:3b"])
 
 
-# --- 2. LEITURA DE DADOS ---
+# --- 2. LEITURA DE DADOS COM RASTREABILIDADE ---
 def read_excel_ultra_clean(uploaded_file) -> str:
     xls = pd.ExcelFile(uploaded_file)
     text_lines = []
     for sheet in xls.sheet_names:
         df = xls.parse(sheet).astype(str)
-        for _, row in df.iterrows():
+        for idx, row in df.iterrows():
             valores = [v.strip() for v in row if v.strip().lower() not in ['nan', 'none', '0.0', '0', '']]
             if len(valores) > 1:  
-                text_lines.append(" | ".join(valores))
+                linha_texto = f"[Linha: {idx+2}] " + " | ".join(valores)
+                text_lines.append(linha_texto)
     return "\n".join(list(dict.fromkeys(text_lines)))
 
 def read_pdf_ultra_clean(uploaded_file) -> str:
     text_lines = []
     with pdfplumber.open(uploaded_file) as pdf:
-        for page in pdf.pages:
+        for i, page in enumerate(pdf.pages):
             text = page.extract_text(layout=True) 
             if text:
-                linhas = [linha.strip() for linha in text.split('\n') if linha.strip()]
+                linhas = [f"[Pág: {i+1}] {linha.strip()}" for linha in text.split('\n') if linha.strip()]
                 text_lines.extend(linhas)
     return "\n".join(text_lines) 
 
 
-# --- 3. MOTOR DE EXTRAÇÃO JSON ---
+# --- 3. MOTOR DE EXTRAÇÃO DE TEXTO RICO ---
 def processar_por_chunks_exaustivo(texto_integral: str, guia_texto: str, llm, modo: str):
     tamanho_max_chunk = 4000 if modo == "API Key" else 15000 
     
@@ -90,41 +90,27 @@ def processar_por_chunks_exaustivo(texto_integral: str, guia_texto: str, llm, mo
     if chunk_atual.strip():
         chunks.append(chunk_atual.strip())
     
-    todos_os_itens_json = [] # O nosso balde mestre de JSONs
+    notas_recolhidas = [] 
     
-    st.markdown("### 📡 Monitor de Extração JSON")
+    st.markdown("### 📡 Monitor de Extração")
     progresso_bar = st.progress(0)
     status_text = st.empty()
     caixa_resultados = st.empty()
 
     mensagem_sistema = SystemMessage(
         content="""You are a Senior Structural Steel Engineer.
-Your task is to extract technical specifications related to steel elements and output them STRICTLY AS A JSON ARRAY.
 
-CONSOLIDATION RULE: Mentally review and group identical items before outputting.
+Your task is to exhaustively extract ALL elements related to steel, secondary steel, fixings, gratings, and fire protection.
 
-OUTPUT FORMAT:
-You must return ONLY a valid JSON array of objects. Do not write markdown, do not write explanations.
-Use this EXACT JSON schema for each object:
-{
-  "source_block": [Insert Block Number Integer],
-  "raw_item": "[Extracted item name]",
-  "raw_spec": "[Full extracted specification text]",
-  "category": "[e.g., STRUCTURAL_STEEL, SECONDARY_STEEL, FIXINGS, CLADDING]",
-  "element": "[Standardized Element Name]",
-  "properties": {
-    "grade": "[e.g., 'S355', 'S235' or null]",
-    "execution_class": "[e.g., 'EXC2', 'EXC3' or null]",
-    "standard": "[e.g., 'NSSSBC 5th Edition', 'EN 1090' or null]"
-  },
-  "processes": ["[e.g., 'fabricated', 'erected']"],
-  "coating": "[e.g., 'Galvanized', 'Painted' or null]",
-  "fire_protection": "[e.g., 'Intumescent 60min', 'R120' or null]",
-  "notes": "[Any other relevant detail or null]",
-  "confidence": "[high, medium, low]"
-}
+CONSOLIDATION & FORMATTING RULE (CRITICAL):
+- Group identical items within the block by combining their reference tags.
+- DO NOT ignore items just because they lack detailed technical specifications. If it's a steel/metal item or fire protection, extract it.
+- You MUST output exactly 3 segments separated by the pipe symbol (|).
 
-If no steel is found in the block, return an empty array: []"""
+Output format:
+- Format: Source Reference | Item | Detailed Specification
+- 'Source Reference' MUST be the exact [Linha: Y] or [Pág: X] tag.
+- No headers, no conversational text."""
     )
 
     for i, chunk in enumerate(chunks):
@@ -135,56 +121,43 @@ If no steel is found in the block, return an empty array: []"""
         with st.expander(f"👁️ Ver Texto Cru do Bloco {bloco_num}", expanded=False):
             st.text(chunk)
 
-        # O SANDWICH PROMPT!
-        prompt_bloco = f"""Extract the steel elements from the text below.
-Apply the filtering and consolidation rules defined in your system prompt.
+        prompt_bloco = f"""Lê o BOQ / Caderno de Encargos (EN) e extrai os dados DE FORMA EXAUSTIVA.
 
-CRITICAL: Your response MUST be a valid JSON array of objects. 
-Use this exact schema for each extracted item:
-{{
-  "source_block": {bloco_num},
-  "raw_item": "...",
-  "raw_spec": "...",
-  "category": "...",
-  "element": "...",
-  "properties": {{
-    "grade": "...",
-    "execution_class": "...",
-    "standard": "..."
-  }},
-  "processes": ["..."],
-  "coating": "...",
-  "fire_protection": "...",
-  "notes": "...",
-  "confidence": "..."
-}}
+Usa a MATRIZ DE AUDITORIA abaixo como a tua 'checklist' principal. Tudo o que encaixar nestas categorias tem de ser extraído:
 
-If no steel is found, return []. Do not include markdown formatting or conversational text.
+### MATRIZ DE AUDITORIA (O que procurar):
+{guia_texto}
 
-DOCUMENT EXCERPT (Block {bloco_num}):
-{chunk}"""
+Regras Críticas:
+1. EXTRAI TUDO O QUE SEJA RELEVANTE À MATRIZ E A AÇO.
+2. Se um elemento metálico ou proteção ao fogo estiver listado mas não tiver grau/norma, extrai a descrição original. Não omitas elementos!
+
+Formato OBRIGATÓRIO (3 partes separadas por '|'):
+Referência de Origem | Item Principal | Especificação ou Descrição Completa
+
+EXCERTO DO DOCUMENTO:
+{chunk}
+
+RESULTADO:"""
 
         try:
             res = llm.invoke([mensagem_sistema, HumanMessage(content=prompt_bloco)])
-            resposta_texto = res.content.strip()
+            linhas_resposta = res.content.strip().split('\n')
             
-            # Remove lixo markdown que a IA possa adicionar antes do JSON
-            if resposta_texto.startswith("```json"):
-                resposta_texto = resposta_texto.replace("```json", "").replace("```", "").strip()
-            elif resposta_texto.startswith("```"):
-                resposta_texto = resposta_texto.replace("```", "").strip()
-                
-            # Converter String em JSON Real e juntar à lista mestre
-            try:
-                dados_bloco = json.loads(resposta_texto)
-                if isinstance(dados_bloco, list) and len(dados_bloco) > 0:
-                    todos_os_itens_json.extend(dados_bloco)
-            except json.JSONDecodeError:
-                st.error(f"⚠️ O bloco {bloco_num} não devolveu um JSON válido. Ignorado.")
+            linhas_limpas = []
+            linhas_vistas = set()
+            for linha in linhas_resposta:
+                linha = linha.strip()
+                if len(linha) > 5 and "|" in linha:
+                    if linha not in linhas_vistas:
+                        linhas_vistas.add(linha)
+                        linhas_limpas.append(linha)
             
-            # Mostra o JSON formatado no ecrã
-            if todos_os_itens_json:
-                caixa_resultados.json(todos_os_itens_json)
+            resposta_final = "\n".join(linhas_limpas)
+            
+            if resposta_final:
+                notas_recolhidas.append(f"--- DADOS DO BLOCO {bloco_num} ---\n{resposta_final}\n")
+                caixa_resultados.text_area(f"Resultados (Até Bloco {bloco_num}):", value="\n".join(notas_recolhidas), height=400)
             
             if modo == "API Key" and i < len(chunks) - 1:
                 st.toast("⏳ Pausa de 25s (Proteção de Limite de API)")
@@ -196,12 +169,12 @@ DOCUMENT EXCERPT (Block {bloco_num}):
                 st.warning("🚨 Limite atingido. Pausa de 60s...")
                 time.sleep(60)
             
-    return todos_os_itens_json
+    return "\n".join(notas_recolhidas)
 
 
 # --- 4. INTERFACE PRINCIPAL ---
 st.title("🏗️ BlocoAI: Extrator de Excel & PDF")
-st.markdown("Auditoria automática focada em Estruturas Metálicas.")
+st.markdown("Auditoria automática focada em Estruturas Metálicas com Rastreabilidade.")
 
 col1, col2 = st.columns([1, 1])
 
@@ -211,9 +184,21 @@ with col1:
 
 with col2:
     st.subheader("2. Matriz de Auditoria")
-    st.info("O modo 'Engenheiro de Aço (JSON)' está ativo.")
-    guia_padrao = "Extração estruturada em Base de Dados (JSON)."
-    guia_input = st.text_area("Notas adicionais (Opcional):", value=guia_padrao, height=100)
+    st.info("O modo 'Engenheiro de Aço (Texto Rico + Rastros)' está ativo.")
+    guia_padrao = """1. CLASSE EXECUÇÃO: EXC2, EXC3, EXC4
+2. MATERIAL DE BASE: Tipo/Grade de Aço (S235 a S460, JR/J0/J2), Normas.
+3. PARAFUSOS / CHUMBADOUROS: Fixações, Holding down bolts, Métrica, Classe 8.8/10.9.
+4. PROTEÇÃO ANTI CORROSIVA: Galvanização, Pintura, Microns.
+5. PROTEÇÃO AO FOGO: Intumescente (R30, 1 Hr, 2 Hr), Fire boards.
+6. SECONDARY STEEL: Escadas, Guarda-corpos (Handrails), Cat Ladders, Bollards.
+7. COMPLEXO COBERTURA/FACHADA: Steel Decking, Painéis."""
+    guia_input = st.text_area("Notas adicionais e Matriz:", value=guia_padrao, height=180)
+
+# --- INICIALIZAR A MEMÓRIA DA APP ---
+if "dados_prontos" not in st.session_state:
+    st.session_state.dados_prontos = False
+    st.session_state.notas_finais = ""
+    st.session_state.df_tabela = None
 
 if st.button("🚀 Iniciar Análise"):
     if file_uploaded:
@@ -222,31 +207,78 @@ if st.button("🚀 Iniciar Análise"):
                 if not api_key.strip():
                     st.error("⚠️ API Key em falta. Coloca-a na barra lateral.")
                     st.stop()
-                llm = ChatGroq(model_name="llama-3.3-70b-versatile", api_key=api_key, temperature=0.1)
+                # ERRO DE INDENTAÇÃO CORRIGIDO AQUI:
+                llm = ChatGroq(model_name="openai/gpt-oss-120b", api_key=api_key, temperature=0.1)
             else:
-                base_url_ollama = "[http://127.0.0.1:11434](http://127.0.0.1:11434)" if modo_execucao == "Local" else f"http://{torre_ip}:11434"
+                base_url_ollama = "http://127.0.0.1:11434" if modo_execucao == "Local" else f"http://{torre_ip}:11434"
                 llm = ChatOllama(model=modelo_selecionado, base_url=base_url_ollama, temperature=0.1, num_ctx=16384)
             
-            with st.spinner("A processar ficheiro..."):
+            with st.spinner("A processar ficheiro e a etiquetar linhas..."):
                 if file_uploaded.name.lower().endswith('.pdf'):
                     texto_completo = read_pdf_ultra_clean(file_uploaded)
                 else:
                     texto_completo = read_excel_ultra_clean(file_uploaded)
 
-            # A variável notas_finais agora é uma lista de dicionários!
             notas_finais = processar_por_chunks_exaustivo(texto_completo, guia_input, llm, modo_execucao)
-            
-            st.markdown("---")
-            st.subheader("📄 Relatório Técnico Final")
 
-            if not notas_finais:
+            if len(notas_finais.strip()) < 10:
                 st.warning("⚠️ Sem dados extraídos.")
             else:
-                # O BOTÃO DE DOWNLOAD AGORA DESCARREGA UM FICHEIRO .JSON
-                json_string = json.dumps(notas_finais, indent=2, ensure_ascii=False)
-                st.download_button("📥 Descarregar Dados (JSON)", data=json_string, file_name="Extracao_Aco.json", mime="application/json")
+                linhas_brutas = notas_finais.strip().split('\n')
+                dados_agrupados = {} 
+                
+                for linha in linhas_brutas:
+                    linha = linha.strip()
+                    if "|" in linha and not linha.startswith("---"): 
+                        partes = [p.strip() for p in linha.split("|", 2)] 
+                        
+                        if len(partes) == 3:
+                            ref, item, spec = partes
+                        elif len(partes) == 2:
+                            ref, item, spec = "Sem Ref", partes[0], partes[1]
+                        else:
+                            continue
+                            
+                        chave = spec.lower() 
+                        
+                        if chave in dados_agrupados:
+                            if ref != "Sem Ref" and ref not in dados_agrupados[chave]["Referência (Excel/PDF)"]:
+                                dados_agrupados[chave]["Referência (Excel/PDF)"] += f"; {ref}"
+                        else:
+                            dados_agrupados[chave] = {
+                                "Referência (Excel/PDF)": ref,
+                                "Elemento de Aço": item,
+                                "Especificação Completa (BOQ)": spec
+                            }
+                
+                if dados_agrupados:
+                    st.session_state.df_tabela = pd.DataFrame(list(dados_agrupados.values()))
+                    st.session_state.notas_finais = notas_finais
+                    st.session_state.dados_prontos = True
+                else:
+                    st.warning("Não foi possível estruturar os dados para a tabela.")
 
         except Exception as e:
             st.error(f"Erro: {e}")
     else:
         st.warning("⚠️ Carrega um ficheiro primeiro.")
+
+# --- MOSTRAR RESULTADOS ---
+if st.session_state.dados_prontos:
+    st.markdown("---")
+    st.subheader("📄 Relatório Técnico Final")
+    
+    df_tabela = st.session_state.df_tabela
+    notas_finais = st.session_state.notas_finais
+    
+    st.success(f"Extração concluída! Encontrados {len(df_tabela)} itens únicos com rastreabilidade.")
+    st.dataframe(df_tabela, use_container_width=True)
+    
+    col_btn1, col_btn2 = st.columns(2)
+    cabecalho = "Origem | Elemento de Aço | Especificação Técnica Completa\n"
+    texto_final = cabecalho + notas_finais
+    col_btn1.download_button("📝 Descarregar Dados (TXT)", data=texto_final, file_name="Extracao_Aco.txt")
+    
+    csv_buffer = io.BytesIO()
+    df_tabela.to_csv(csv_buffer, index=False, sep=";", encoding="utf-8-sig")
+    col_btn2.download_button("📊 Descarregar Tabela (CSV)", data=csv_buffer.getvalue(), file_name="Orcamento_Aco.csv", mime="text/csv")
