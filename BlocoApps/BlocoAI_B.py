@@ -1,3 +1,4 @@
+from langchain_openai import ChatOpenAI
 import streamlit as st
 import pandas as pd
 import time
@@ -14,7 +15,6 @@ import json
 # .env loader
 # ============================================================
 def carregar_env_local():
-    """Carrega variáveis do .env da pasta do app ou da raiz do projeto."""
     base_dir = Path(__file__).resolve().parent
     candidatos = [base_dir / ".env", base_dir.parent / ".env"]
     for env_path in candidatos:
@@ -26,12 +26,16 @@ def carregar_env_local():
                 continue
             chave, valor = linha.split("=", 1)
             chave = chave.strip()
+            if chave.startswith("export "):
+                chave = chave[len("export "):].strip()
             valor = valor.strip().strip('"').strip("'")
             if chave:
-                os.environ.setdefault(chave, valor)
-    return
+                if not os.getenv(chave):
+                    os.environ[chave] = valor
+        return
 
 carregar_env_local()
+
 
 # ============================================================
 # Streamlit UI
@@ -40,30 +44,21 @@ st.set_page_config(page_title="BlocoAI - Orçamentação", layout="wide", page_i
 st.sidebar.image("https://img.icons8.com/fluency/96/structural.png", width=80)
 st.sidebar.title("Configurações")
 
-modo_execucao = st.sidebar.radio("Ligação", ["Remoto", "Local", "API Key"], index=0)
+modo_execucao = st.sidebar.radio("Ligação", ["Local", "API Key", "Groq"], index=0)
 
 ROWS_PER_CHUNK = 50 
 
 if modo_execucao == "API Key":
-    api_key_default = os.getenv("GROQ_API_KEY", "")
-    api_key = st.sidebar.text_input(
-        "API Key",
-        value=api_key_default,
-        type="password",
-        help="Introduz a tua chave API da Groq. Não será guardada."
-    )
-    modelo_selecionado = st.sidebar.selectbox(
-        "Modelo Groq", 
-        [
-            "llama-3.3-70b-versatile",  
-            "qwen/qwen3-32b",       
-            "openai/gpt-oss-120b"
-        ]
-    )
-else:
-    torre_ip = st.sidebar.text_input("IP da Torre Ollama", value="100.105.95.121")
-    modelo_selecionado = st.sidebar.selectbox("LLM (Ollama)", ["qwen3.5:9b", "llama3.2:3b"])
-
+    api_key_default = os.getenv("CHATGPT_API_KEY", "")
+    api_key_input = st.sidebar.text_input("🔑 API Key OpenAI", value="", type="password")
+    api_key = api_key_input.strip() or api_key_default.strip()
+    modelo_selecionado = st.sidebar.selectbox("🧠 Modelo OpenAI", ["gpt-4o-mini", "gpt-4", "gpt-3.5-turbo"])
+    
+elif modo_execucao == "Groq":
+    groq_api_key_default = os.getenv("GROQ_API_KEY", "")
+    groq_api_key_input = st.sidebar.text_input("🔑 API Key Groq", value="", type="password")
+    groq_api_key = groq_api_key_input.strip() or groq_api_key_default.strip()
+    modelo_selecionado = st.sidebar.selectbox("🧠 Modelo Groq", ["gpt-oss-120b"])
 # ============================================================
 # PDF reader (texto)
 # ============================================================
@@ -81,27 +76,51 @@ def read_pdf_ultra_clean(uploaded_file) -> str:
 # ============================================================
 # Spreadsheet reader (TEXTO SIMPLES EM LINHAS | OTIMIZADO)
 # ============================================================
-def read_excel_ultra_clean(uploaded_file) -> str:
-    """Transforma Excel ou CSV num texto ultra comprimido separado por | COM NÚMERO DE LINHA"""
+# ============================================================
+# Spreadsheet reader (TEXTO SIMPLES EM LINHAS | OTIMIZADO)
+# ============================================================
+def read_excel_ultra_clean(uploaded_file, max_cols_per_row=12) -> str:
+    """
+    Excel/CSV -> texto com rastreabilidade + coluna=valor.
+    - max_cols_per_row limita quantos campos mandas (poupa tokens).
+    """
     text_lines = []
-    
-    # Suporte para CSV e Excel no mesmo bloco
+
+    # CSV ou Excel
     if uploaded_file.name.lower().endswith('.csv'):
-        df = pd.read_csv(uploaded_file, keep_default_na=False).astype(str)
+        df = pd.read_csv(uploaded_file, keep_default_na=False).fillna("").astype(str)
         dfs = {"CSV Data": df}
     else:
         xls = pd.ExcelFile(uploaded_file)
-        dfs = {sheet: xls.parse(sheet).astype(str) for sheet in xls.sheet_names}
+        dfs = {sheet: xls.parse(sheet).fillna("").astype(str) for sheet in xls.sheet_names}
+
+    # normalizar header (evita "nan")
+    def clean_col(c, i):
+        c = str(c).strip()
+        return c if c and c.lower() != "nan" else f"col_{i+1}"
 
     for sheet, df in dfs.items():
-        for idx, row in df.iterrows():
-            valores = [v.strip() for v in row if v.strip().lower() not in ['nan', 'none', '0.0', '0', '']]
-            if len(valores) > 1:  
-                numero_linha = idx + 2  
-                text_lines.append(f"[{sheet}@L{numero_linha}] " + " | ".join(valores))
-                
-    return "\n".join(list(dict.fromkeys(text_lines)))
+        df.columns = [clean_col(c, i) for i, c in enumerate(df.columns)]
 
+        for idx, row in df.iterrows():
+            numero_linha = idx + 2  # assumindo header na linha 1
+
+            pairs = []
+            for col in df.columns:
+                v = str(row[col]).strip()
+                if v.lower() in ["", "nan", "none", "0", "0.0"]:
+                    continue
+
+                # compacta: "Description" grande fica, mas limita campos
+                pairs.append(f"{col}={v}")
+                if len(pairs) >= max_cols_per_row:
+                    break
+
+            if len(pairs) >= 2:
+                text_lines.append(f"[{sheet}@L{numero_linha}] " + " | ".join(pairs))
+
+    # remove duplicados preservando ordem
+    return "\n".join(list(dict.fromkeys(text_lines)))
 # ============================================================
 # JSON parsing helpers
 # ============================================================
@@ -161,7 +180,7 @@ def safe_parse_json_list(raw: str):
     
     # FALLBACK: Extrai objetos JSON { } válidos individuais
     # Usa regex mais inteligente para encontrar objetos JSON completos
-    pattern = r'\{[^{}](?:"[^"]"[^{}])\}'
+    pattern = r'\{[^{}]*?(?:"[^"]*?"\s*:\s*[^,}]*)[^{}]*?\}'
     matches = re.findall(pattern, cleaned)
     
     recovered = []
@@ -184,14 +203,12 @@ def safe_parse_json_list(raw: str):
 
 def normalize_item(item: dict, chunk_index: int) -> dict:
     return {
-        "chunk": chunk_index,
-        "building": item.get("building", "") or "",
+        "linha": item.get("linha", "") or "",
         "phase": item.get("phase", "") or "",
+        "building": item.get("building", "") or "",
         "item": item.get("item", "") or "",
         "especificacao": item.get("especificacao", "") or "",
-        "ecc": item.get("ecc", "") or "",
-        "linha": item.get("linha", "") or "",
-        "evidencia": item.get("evidencia", "") or ""
+        "ecc": item.get("ecc", "") or ""
     }
 
 # ============================================================
@@ -237,29 +254,60 @@ def processar_excel_texto_json(texto_integral: str, llm, modo: str, linhas_por_c
         with st.expander(f"👁️ Ver texto enviado (Bloco {i})", expanded=False):
             st.text(chunk_text[:6000] + ("\n...\n" if len(chunk_text) > 6000 else ""))
 
-        prompt_bloco="""You are a Senior Structural Steel Engineer. 
-Extract technical data respecting this strict hierarchy: PHASE first, then ZONE.
+        prompt_bloco = f"""
+You are a Senior Structural Steel Engineer analyzing spreadsheet rows exported as text.
 
-OUTPUT FORMAT (Exactly 5 segments separated by '|'):
-Source Reference | Phase-Zone | Category | Item | Technical Detail
+Each row is formatted like:
+[Sheet@L<number>] field=value | field=value | field=value | ...
 
-HIERARCHY RULES:
-PHASE: PH1, PH2, PH3, etc.
-ZONE: CSA, EYD, MYD, DCH, FSA, etc.
-If a Phase is found but no Zone, use 'Phase - General'.
-'Technical Detail' must include Grades (S355), Standards, and Treatments. NO math.
+Your job is to extract ONLY steel-related line items and their technical specifications.
 
-Example: [Linha: 10] | PH1 - CSA | Structural Steel | Beam | S355, EXC2, Galvanized
+How to interpret rows (do NOT assume fixed column names):
+- Phase: any field value matching the pattern "Phase <number>" (e.g., "Phase 1", "Phase 2").
+- Building: a 3-letter building code (e.g., FSA, DCH, ABC) that appears as a standalone token or as a short field value. Prefer values that repeat across many rows.
+- Elemental cost classification (ECC): any field whose value indicates a cost classification/category; treat a row as steel-related ONLY if that value contains the word "Steel" (case-insensitive).
+- Item description / technical spec: text fields that describe scope/material/specification (e.g., beams, columns, plates, bolts 8.8/10.9, EN standards, coatings, fire rating).
 
-SPREADSHEET:
+Extraction rules:
+- Include ONLY steel-related items (based on ECC containing "Steel").
+- Extract:
+  1) building (if found)
+  2) phase (if found)
+  3) item (short name of the steel element/system)
+  4) especificacao (full technical specification text found in the row: grades S235/S355, EXC2/EXC3, EN/BS standards, coatings, galvanizing, paint micron, fire rating R30/R60/R120, bolts EN 14399 8.8/10.9, etc.)
+  5) ecc (the classification value that triggered the steel filter)
+  6) linha (the line reference from the prefix: use "L<number>" from [Sheet@L<number>])
+- Do NOT include quantities, prices, totals, or units unless they are part of a technical specification (e.g., "10mm" thickness is allowed).
+- Deduplicate: if the same item with the same especificacao appears multiple times, output it only once. If duplicates have different linha values, keep the first linha only.
+- Never infer or invent missing values. If building/phase cannot be determined from the row, output them as empty string "".
+
+OUTPUT RULES (STRICT):
+- Output ONLY a valid JSON array. No markdown, no explanations, no extra text.
+- If no steel items are found, output: []
+- JSON schema:
+[
+  {{
+    "item": "...",
+    "building": "...",
+    "phase": "...",
+    "especificacao": "...",
+    "ecc": "...",
+    "linha": "L..."
+  }}
+]
+SPREADSHEET DATA:
 {chunk_text}
 
-JSON:
+JSON OUTPUT:
 """.strip()
 
         try:
             res = llm.invoke([mensagem_sistema, HumanMessage(content=prompt_bloco)])
-            raw = res.content.strip()
+            raw = res.content.strip() if res and res.content else ""
+            
+            if not raw:
+                st.warning(f"⚠️ Bloco {i}: LLM retornou resposta vazia")
+                continue
 
             # Debug: mostrar a resposta bruta
             with st.expander(f"🔧 Debug: Resposta bruta LLM (Bloco {i})", expanded=False):
@@ -314,23 +362,23 @@ if st.button("🚀 Iniciar Análise"):
 
     try:
         # Escolher LLM
+        # Escolher LLM
         if modo_execucao == "API Key":
-            if not api_key.strip():
-                st.warning("⚠️ Introduz a API Key para usar o modo API.")
-                st.stop()
+                if not api_key.strip():
+                    st.error("⚠️ API Key em falta. Coloca-a na barra lateral.")
+                    st.stop()
+                llm = ChatOpenAI(model=modelo_selecionado, api_key=api_key, temperature=0.1)
 
-            llm = ChatGroq(
-                model_name=modelo_selecionado,
-                api_key=api_key,
-                temperature=0.1
-            )
-            st.sidebar.caption(f"Modelo: {llm.model_name} (Groq)")
+        elif modo_execucao == "Groq":
+                if not groq_api_key.strip():
+                    st.error("⚠️ API Key Groq em falta. Coloca-a na barra lateral.")
+                    st.stop()
+                llm = ChatGroq(model="openai/gpt-oss-120b", api_key=groq_api_key, temperature=0.1)
+
             
         else:
             if modo_execucao == "Local":
                 base_url_ollama = "[http://127.0.0.1:11434](http://127.0.0.1:11434)"
-            else:
-                base_url_ollama = f"http://{torre_ip}:11434"
 
             llm = ChatOllama(
                 model=modelo_selecionado,
